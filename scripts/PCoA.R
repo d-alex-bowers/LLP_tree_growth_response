@@ -28,9 +28,9 @@ pcoa <- function(data, species, method) {
   # select FADs
   predictors_health <- pcoa_data %>% dplyr::select(broken_stem, defoliation, rot, wound, 
                                                    fire, insect, canker, leaf_damage, 
-                                                   hollow_stem, overtopped, animal, 
-                                                   lightning, fungi, crushed,
-                                                   bark_beetles, unknown,
+                                                   hollow_stem, animal, 
+                                                   lightning, fungi, crushed, uprooted,
+                                                   bark_beetles, unknown, armillaria,
                                                    postfire_leaf_loss)
   
   # ensure no columns have all 0s
@@ -41,16 +41,16 @@ pcoa <- function(data, species, method) {
   
   # run PCoA
   ### k is n col - 1
-  cmd_health <- cmdscale(g_predictors_health, (k = 13), eig = TRUE)
+  cmd_health <- cmdscale(g_predictors_health, (k = 12), eig = TRUE)
   
   # PCoA table
-  eigenvalues_health <- cmd_health$eig[1:13]
+  eigenvalues_health <- cmd_health$eig[1:12]
   propVar_health <- eigenvalues_health/sum(eigenvalues_health)
   cumVar_health <- cumsum(propVar_health)
   PCoA_Table_health <- cbind(eigenvalues_health, propVar_health, cumVar_health)
   
   # Scree plot:
-  scree <- data.frame(Index = c(1,2,3,4,5,6,7,8,9,10,11,12,13), Eigen = eigenvalues_health)
+  scree <- data.frame(Index = c(1,2,3,4,5,6,7,8,9,10,11,12), Eigen = eigenvalues_health)
   scree_plot <- ggplot(scree, aes(x = Index, y = Eigen)) +
     geom_point() +
     geom_line() +
@@ -104,6 +104,8 @@ qula_pcoa[[2]]
 pipa_lm <- pipa_pcoa[[1]]
 qula_lm <- qula_pcoa[[1]]
 
+write.csv(pipa_lm, "pipa_lm.csv")
+write.csv(qula_lm, "qula_lm.csv")
 
 ##### Find significant factors #####
 
@@ -143,17 +145,14 @@ plot_pcoa <- function(sp_pcoa, highlight_vars = NULL) {
   # convert to dataframe
   predictors_scores_health <- as.data.frame(predictors_scores_health)
   
-  # classify based on highlight_vars instead of thresholds
-  predictors_scores_health$importance <- ifelse(
-    rownames(predictors_scores_health) %in% highlight_vars, 
-    "high", "low"
-  )
+  # keep only significant variables
+  predictors_scores_health <- predictors_scores_health[
+    rownames(predictors_scores_health) %in% highlight_vars, , drop = FALSE
+  ]
   
   # add variables for plot
   PCa <- pcoa_coords_health[, "PC1"]
   PCb <- pcoa_coords_health[, "PC2"]
-  Xa <- predictors_scores_health[, "PC1"]
-  Xb <- predictors_scores_health[, "PC2"]
   pcoa_labels <- sp_pcoa[[2]][1:3, ]
   rownames(pcoa_labels) <- c("PC1", "PC2", "PC3")
   
@@ -166,20 +165,19 @@ plot_pcoa <- function(sp_pcoa, highlight_vars = NULL) {
     geom_jitter(data = pcoa_coords_health, aes(x = PCa, y = PCb), size = 3, 
                 alpha = .5, width = 0.005, height = 0.005) +
     
-    # plot variable arrows and labels
+    # plot variable arrows and labels (significant only, in black)
     geom_text_repel(data = predictors_scores_health, 
                     aes(x = PC1, y = PC2, 
-                        label = rownames(predictors_scores_health), 
-                        color = importance),
-                    size = 8, max.overlaps = 115, box.padding = 0.55, 
-                    segment.color = "#545454", segment.size = 1, 
-                    segment.curvature = 0.3, segment.ncp = 5, point.padding = 0.1) +
+                        label = rownames(predictors_scores_health)),
+                    color = "red",
+                    size = 6.5, max.overlaps = 115, box.padding = 1.8, 
+                    segment.color = "red", segment.size = 1, 
+                    segment.curvature = 0.3, segment.ncp = 5, point.padding = 0) +
     
     geom_point(data = predictors_scores_health, 
-               aes(x = PC1, y = PC2, color = importance),
-               size = 3, shape = 16) +
+               aes(x = PC1, y = PC2),
+               color = "red", size = 3, shape = 16) +
     
-    scale_color_manual(values = c("high" = "red", "low" = "grey")) +
     theme(legend.position = "none") +
     xlim(-0.3, 0.3) +
     ylim(-0.3, 0.3) +
